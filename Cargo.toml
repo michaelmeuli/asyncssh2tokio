@@ -1,0 +1,8 @@
+[package]
+name = "asyncssh2tokio"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+async-ssh2-tokio = "0.8.12"
+tokio = "1.40.0"
