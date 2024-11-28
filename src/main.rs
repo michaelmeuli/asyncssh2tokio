@@ -13,7 +13,16 @@ async fn main() -> Result<(), async_ssh2_tokio::Error> {
     //let auth_method = AuthMethod::with_password("mimeul");
     //let auth_method = AuthMethod::with_key_file("C:/Users/mmeuli2/.ssh/id_rsa", None);
     //let auth_method = AuthMethod::with_key_file("C:/Users/micha/.ssh/id_rsa", None);
-    let auth_method = AuthMethod::with_key_file(ssh_key_path(), None);
+
+    let key_path = match ssh_key_path() {
+        Ok(path) => path,
+        Err(e) => {
+            eprintln!("Failed to get SSH key path: {}", e);
+            return Ok(());
+        }
+    };
+
+    let auth_method = AuthMethod::with_key_file(key_path, None);
 
     let client = Client::connect(
         ("130.60.24.133", 22),
@@ -37,13 +46,21 @@ async fn main() -> Result<(), async_ssh2_tokio::Error> {
     Ok(())
 }
 
-fn ssh_key_path() -> String {
-    UserDirs::new()
-        .unwrap()
-        .home_dir()
-        .join(".ssh")
-        .join("id_rsa")
-        .to_str()
-        .unwrap()
-        .to_string()
+
+
+fn ssh_key_path() -> Result<String, String> {
+    if let Some(user_dirs) = UserDirs::new() {
+        let path = user_dirs.home_dir().join(".ssh").join("id_rsa");
+        if path.exists() {
+            match path.to_str() {
+                Some(path_str) => Ok(path_str.to_string()),
+                None => Err("Failed to convert SSH key path to string".to_string()),
+            }
+        } else {
+            Err(format!("SSH key file does not exist at: {:?}", path))
+        }
+    } else {
+        Err("Failed to determine the user's home directory".to_string())
+    }
 }
+
