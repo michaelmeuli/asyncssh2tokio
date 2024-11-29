@@ -2,20 +2,14 @@ use async_ssh2_tokio::client::{AuthMethod, Client, ServerCheckMethod};
 use directories_next::UserDirs;
 use std::collections::HashMap;
 
+use std::fs::OpenOptions;
+use std::io::Write;
+
 const REMOTE_RAW_DIR: &str = "/shares/sander.imm.uzh/MM/PRJEB57919/raw";
+const USERNAME: &str = "mimeul";
 
 #[tokio::main]
 async fn main() -> Result<(), async_ssh2_tokio::Error> {
-    // if you want to use key auth, then use following:
-    // AuthMethod::with_key_file("key_file_name", Some("passphrase"));
-    // or
-    // AuthMethod::with_key_file("key_file_name", None);
-    // or
-    // AuthMethod::with_key(key: &str, passphrase: Option<&str>)
-
-    //let auth_method = AuthMethod::with_password("mimeul");
-    //let auth_method = AuthMethod::with_key_file("C:/Users/mmeuli2/.ssh/id_rsa", None);
-    //let auth_method = AuthMethod::with_key_file("C:/Users/micha/.ssh/id_rsa", None);
 
     let key_path = match ssh_key_path() {
         Ok(path) => path,
@@ -24,39 +18,29 @@ async fn main() -> Result<(), async_ssh2_tokio::Error> {
             return Ok(());
         }
     };
-
     let auth_method = AuthMethod::with_key_file(key_path, None);
-
     let client = Client::connect(
         ("130.60.24.133", 22),
-        "mimeul",
+        USERNAME,
         auth_method,
         ServerCheckMethod::NoCheck,
     )
     .await?;
-
     println!("Connected to the server");
-    let result = client.execute("echo Hello SSH").await?;
-    print!("stdout: {}", result.stdout);
-    assert_eq!(result.stdout, "Hello SSH\n");
-    assert_eq!(result.exit_status, 0);
-
-    let result = client.execute("echo Hello Again \\:\\)").await?;
-    print!("stdout2: {}", result.stdout);
-    assert_eq!(result.stdout, "Hello Again :)\n");
-    assert_eq!(result.exit_status, 0);
-
+    //client.disconnect().await?;
 
     let command = format!("test -d {} && echo 'exists'", REMOTE_RAW_DIR);
     let result = client.execute(&command).await?;
     if result.stdout.trim() == "exists" {
-        println!("Directory {} exists.", REMOTE_RAW_DIR);
+        println!("Directory on remote with raw reads exists: {}", REMOTE_RAW_DIR);
     } else {
-        panic!("Directory {} does not exist or is inaccessible.", REMOTE_RAW_DIR);
+        log_error(&format!("Directory on remote with raw reads does not exist: {}", REMOTE_RAW_DIR));
+        panic!("Directory on remote with raw reads does not exist: {}", REMOTE_RAW_DIR);
     }
     let command = format!("ls {}", REMOTE_RAW_DIR);
     let result = client.execute(&command).await?;
     print!("stdout: {}", result.stdout);
+    assert_eq!(result.exit_status, 0);
     let stdout = result.stdout;
     let file_names: Vec<&str> = stdout.lines().collect();
     println!("List of file names:");
@@ -139,3 +123,14 @@ fn ssh_key_path() -> Result<String, String> {
     }
 }
 
+
+
+fn log_error(message: &str) {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true) // Clear the file's contents
+        .open("error.log")
+        .expect("Failed to open log file");
+    writeln!(file, "{}", message).expect("Failed to write to log file");
+}
