@@ -1,6 +1,8 @@
 use async_ssh2_tokio::client::{AuthMethod, Client, ServerCheckMethod};
 use directories_next::UserDirs;
 
+const REMOTE_RAW_DIR: &str = "/shares/sander.imm.uzh/MM/PRJEB57919/raw";
+
 #[tokio::main]
 async fn main() -> Result<(), async_ssh2_tokio::Error> {
     // if you want to use key auth, then use following:
@@ -42,6 +44,24 @@ async fn main() -> Result<(), async_ssh2_tokio::Error> {
     print!("stdout2: {}", result.stdout);
     assert_eq!(result.stdout, "Hello Again :)\n");
     assert_eq!(result.exit_status, 0);
+
+
+    let command = format!("test -d {} && echo 'exists'", REMOTE_RAW_DIR);
+    let result = client.execute(&command).await?;
+    if result.stdout.trim() == "exists" {
+        println!("Directory {} exists.", REMOTE_RAW_DIR);
+    } else {
+        panic!("Directory {} does not exist or is inaccessible.", REMOTE_RAW_DIR);
+    }
+    let command = format!("ls {}", REMOTE_RAW_DIR);
+    let result = client.execute(&command).await?;
+    print!("stdout: {}", result.stdout);
+    let stdout = result.stdout;
+    let file_names: Vec<&str> = stdout.lines().collect();
+    println!("List of file names:");
+    for file_name in &file_names {
+        println!("{}", file_name);
+    }
 
     Ok(())
 }
